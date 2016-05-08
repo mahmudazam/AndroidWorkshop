@@ -3,20 +3,19 @@ import java.io.*;
 import java.net.*;
 
 public class ChatRoomClient {
-	
 	public static void main(String[] args) {
-		
+		String iD;
 		Scanner omi = new Scanner(System.in);
 		
 		// Read ID from user:
 		
 		System.out.println("Chat App Starts: \nPlease Enter ID: ");
-		String iD = omi.nextLine();
+		iD = omi.nextLine();
 		
 		// Read Server IP from user:
 		
 		// System.out.println("Please enter server IP: ");
-		final String ip = "172.16.1.64";
+		final String ip = "172.16.1.67";
 		final int port = 60000;
 		
 		// Connect to Server:
@@ -42,20 +41,13 @@ public class ChatRoomClient {
 		
 
 		// Run service:
-		ReceiveThread r = new ReceiveThread(in);
+		ReceiveThread r = new ReceiveThread(in, iD);
 		Thread tReceive = new Thread(r);
-		SendThread s = new SendThread(out);
+		SendThread s = new SendThread(out, iD);
 		Thread tSend = new Thread(s);
 		tReceive.start();
 		tSend.start();
-		while(true) {
-			if(s.getState() == false) {
-				r.terminate();
-			}
-		}
-		
-	}
-			
+	}		
 }
 
 	class SendThread implements Runnable {
@@ -63,16 +55,18 @@ public class ChatRoomClient {
 		boolean running;
 		String message;
 		Scanner omi;
+		String iD;
 		
 		public synchronized boolean getState() {
 			return this.running;
 		}
 		
-		SendThread(OutputStream o) {
+		SendThread(OutputStream o, String id) {
 			this.out = o;
 			this.running = true;
 			this.message = "";
 			this.omi = new Scanner(System.in);
+			this.iD = id;
 		}
 		
 		public void run() {
@@ -89,10 +83,6 @@ public class ChatRoomClient {
 				} catch(IOException e) {
 					System.out.println("sendMessage: IOException");
 				}
-				if(message.equals("$exit")) { 
-					System.out.println("Chat program will close. ");
-					this.running = false;
-				}
 			}
 		}
 	}
@@ -102,12 +92,14 @@ public class ChatRoomClient {
 		int temp;
 		boolean running;
 		String message;
+		String iD;
 		
-		ReceiveThread(InputStream i) {
+		ReceiveThread(InputStream i, String id) {
 			this.temp = -1;
 			this.in = i;
 			this.running = true;
 			this.message = "";
+			this.iD = id;
 		}
 		
 		public synchronized void terminate() {
@@ -132,7 +124,10 @@ public class ChatRoomClient {
 						temp = in.read();
 					}
 					System.out.print(message);
-					if(message.contains("$exit")) break;
+					if(message.contains(iD + ": $exit")) {
+						System.out.println("ChatRoom will close. ");
+						System.exit(0);
+					}
 				} catch(IOException e) {
 					System.out.println("receiveMessage: IOException");
 					break;

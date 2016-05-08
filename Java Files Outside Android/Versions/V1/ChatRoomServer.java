@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.concurrent.*;
 import java.net.*;
 import java.io.*;
 
@@ -6,8 +7,9 @@ class ChatRoomServer {
 	
 	ServerSocket server;
 	String command;
+	String bufferName;
 	
-	ChatRoomServer(int port) {
+	ChatRoomServer(int port, String n) {
 		server = null;
 		command = "";
 		try {
@@ -16,13 +18,14 @@ class ChatRoomServer {
 			System.out.println("Server initiation failed. ");
 			System.exit(0);
 		}
+		this.bufferName = n;
 	}
 
 	public void hostServer() {
 		
 		Scanner omi = new Scanner(System.in);
-		Queue<Client> clientList = new SynchronizedQueue<Client>();
-		SynchronizedFileBuffer mainBuffer = new SynchronizedFileBuffer("ServerBuffer.txt");
+		ConcurrentLinkedQueue<Client> clientList = new ConcurrentLinkedQueue<Client>();
+		SynchronizedFileBuffer mainBuffer = new SynchronizedFileBuffer(this.bufferName);
 		
 		/*Thread listenThread =*/ new Thread(new Runnable() { 
 			public void run() {
@@ -31,31 +34,8 @@ class ChatRoomServer {
 						Socket clientEndSender = server.accept();
 						Socket clientEndReceiver = server.accept();
 						// if((clientEndSender == null) || (clientEndReceiver == null)) continue;
-						// if(clientEndSender.getRemoteAddress().getHostAddress() != clientEndSender.getInetAddress().getHostAddress()) continue;
-						clientList.addLast(new Client(clientEndSender, clientEndReceiver, mainBuffer));
-						ListIterator<Client> iterator = clientList.listIterator(0);
-						Client temp = null;
-						while(iterator.hasNext()) {
-							temp = (Client)iterator.next();
-							if(temp == null) {
-								System.out.println("null client in the clientList.");
-								clientList.remove(temp);
-								continue;
-							}
-							System.out.println(temp.getID() + " checked");
-							if(temp.isRunning() == false) {
-								System.out.println("Removed ");
-								try {
-									Thread.sleep(100);
-									clientList.remove(temp);
-								} catch(InterruptedException e) {
-									System.out.println("InterruptedException in main(). ");
-								} catch(ConcurrentModificationException ce) {
-									continue;
-								} 
-							}
-						}
-
+						// if(clientEndSender.getRemoteAddress().getHostAddress() != clientEndSender.getRemoteAddress().getHostAddress()) continue;
+						clientList.add(new Client(clientEndSender, clientEndReceiver, mainBuffer));
 					}
 				} catch(IOException e) {
 					System.out.println("ChatRoom: Room creation failed. ");
@@ -71,6 +51,20 @@ class ChatRoomServer {
 		/*Thread monitorThread =*/ new Thread(new Runnable() {
 			public void run() {
 				while(true) {
+					Client temp = null;
+					for(int i = 0; i < clientList.size(); i++) {
+						temp = (Client)clientList.poll();
+						if(temp == null) {
+							System.out.println("null client in the clientList.");
+							continue;
+						}
+						// System.out.println(temp.getID() + " checked");
+						if(temp.isRunning() == true) {
+								clientList.add(temp);
+						} else {
+							System.out.println(temp.getID() + " is not running and hence was removed from the list.");
+						}
+					}
 				}
 			}
 		}).start();
@@ -217,15 +211,15 @@ class Client {
 	
 	public synchronized void disconnect() {
 		this.running = false;
-		this.buffer.append((this.iD + "left chat. \n"));
-		try {
+		this.buffer.append((this.iD + " left chat. \n"));
+		/*try {
 			this.socketIn.close();
 			this.socketOut.close();
 			this.clientEndSender.close();
 			this.clientEndReceiver.close();
 		} catch(IOException e) {
 			
-		}
+		}*/
 		System.out.println("Client: " + this.iD + " disconnected.");
 	}
 	
@@ -256,7 +250,7 @@ class Client {
 						buffer.append(message);
 						// System.out.print(message);
 					}
-					if(message.contains(iD + ": $exit")) {
+					if(message.equals(iD + ": $exit")) {
 						break;
 					}
 				} catch(IOException e) {
@@ -285,12 +279,12 @@ class Client {
 						message += (char)fileTemp;
 						fileTemp = bufferFIStream.read();
 					}
-					if(message.contains(iD +": $exit")) break;
 					// System.out.println();
 					if(!message.equals("")) {
 						socketOut.write((message + (char) 3).getBytes());
 						socketOut.flush();
 					}
+					if(message.contains(iD + ": $exit")) break;
 				} catch(IOException e) {
 					System.out.println("sendMessage: IOException");
 				}
