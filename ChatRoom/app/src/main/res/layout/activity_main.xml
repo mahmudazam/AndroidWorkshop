@@ -18,7 +18,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:gravity="bottom"
-        android:text="Some Text."
+        android:text="ChatRoom starts."
         android:scrollbars="vertical"
         android:id="@+id/display"/>
 
@@ -36,6 +36,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:inputType="textMultiLine"
+            android:scrollbars="vertical"
             android:imeOptions="actionSend"
             android:hint="@string/to_send" />
 
