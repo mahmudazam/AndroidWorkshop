@@ -18,7 +18,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:gravity="bottom"
-        android:text="ChatRoom starts."
+        android:text="ChatRoom starts. \n"
         android:scrollbars="vertical"
         android:id="@+id/display"/>
 
@@ -43,7 +43,7 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Send"
+            android:text=">>"
             android:id="@+id/send_button"
             android:onClick="send"/>
 

@@ -3,38 +3,17 @@ import java.util.concurrent.*;
 import java.net.*;
 import java.io.*;
 
-// Class for creating a multi-threaded chat server:
 class ChatRoomServer {
 	
-	// Network objects:
 	ServerSocket server;
-	Socket clientEndSender;
-	Socket clientEndReceiver;
 	InputStream in;
 	OutputStream out;
-	
-	// Strings:
 	String command;
 	String bufferName;
-	
-	// File Manager object:
-		// This is necessary because the server uses a plain text(.txt) file to store the
-		//	messages of the clients. This file will be called the "file buffer". 
 	SynchronizedFileBuffer mainBuffer;
-	
-	// List/Queue object for managing clients:
 	ConcurrentLinkedQueue<Client> clientList;
-	
-	// Scanner for taking inputs from the console:
 	Scanner omi;
 	
-	// Constructor:
-	// Pre: port::int :: the port to which the ServerSocket of this object will be bound
-	//		n::java.lang.String :: the name/path of the file buffer
-	// Post: A new java.net.ServerSocket is created, bound to the given port.
-	//		A new file is created as the file buffer with the given name/path.
-	//		A new java.util.concurrent.ConcurrentLinkedQueue is created.
-	//		A new Scanner object is allocated to take inputs from the console.
 	ChatRoomServer(int port, String n) {
 		server = null;
 		command = "";
@@ -44,8 +23,6 @@ class ChatRoomServer {
 			System.out.println("Server initiation failed. ");
 			System.exit(0);
 		}
-		clientEndSender = null;
-		clientEndReceiver = null;
 		this.bufferName = n;
 		mainBuffer = new SynchronizedFileBuffer(this.bufferName);
 		clientList = new ConcurrentLinkedQueue<Client>();
@@ -53,31 +30,15 @@ class ChatRoomServer {
 		in = null;
 		out = null;
 	}
-	
-	////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Algorithm: hostServer()
-	// Starts the threads for the server's functions: for listening to incoming connections,
-	//											for removing disconnected clients; and
-	//	continuously takes inputs from the console as commands or messages to the clients.
-	// Pre: nothing
-	// Post: The two threads mentioned in the description are started and a starting message is printed
-	//		to the console.
-	// Return: void
+
 	public void hostServer() {
-		// Listener Thread:
-		//	Listens for incoming connections and verifies that the ID's chosen by the clients are
-		//		unique.
 		
 		new Thread(new Runnable() { 
 			public void run() {
-					
-				// Listen for incoming java.net.Socket connections:
-				while(true) {
-					clientEndSender = null;
-					clientEndReceiver = null;
-					try {
-						clientEndSender = server.accept();
-						clientEndReceiver = server.accept();
+				try {
+					while(true) {
+						Socket clientEndSender = server.accept();
+						Socket clientEndReceiver = server.accept();
 						if((clientEndSender == null) || (clientEndReceiver == null)) continue;
 						String cesIP = clientEndSender.getInetAddress().toString();
 						String cerIP = clientEndReceiver.getInetAddress().toString();
@@ -86,60 +47,47 @@ class ChatRoomServer {
 							clientEndReceiver.close();
 							continue;
 						}
-					} catch(IOException e) {
-						System.out.println("A client tried to connect but failed. ");
-						continue;
-					}
-					
-					// Receive and verify the ID of the client in a new Thread after the connection has been made:
-					// new Thread(new Runnable() {
-						// public void run() {
-							try {	
-							// Receive the first '\n'-terminated message which will be the ID of the client:
-								in = clientEndSender.getInputStream();
-								out = clientEndReceiver.getOutputStream();
-								String iD = "";
-								int temp = -1;
-								boolean connected = false;
-								while(!connected) {
-									iD = "";
-									temp = in.read();
-									if((temp == -1) || (temp == (char)'\n')) continue;
-									while(temp != (int)'\n') {
-										iD += (char)temp;
-										temp = in.read();
-									}
-									if(iD.contains("$exit")) {
-										clientEndSender.close();
-										clientEndSender.close();
-										break;
-									}
-									
-							// Verify that the ID is unique: 
-									
-									if(!iDExists(iD)) {
-										out.write("Server: Connection established! ".getBytes());
-										out.write("\n".getBytes());
-										connected = true;
-										clientList.add(new Client(iD, clientEndSender, clientEndReceiver, mainBuffer));
-										System.out.println("Number of Clients in the ChatRoom: " + clientList.size());
-									} else {
-										out.write("Server: ID already exists. ".getBytes());
-										out.write("\n".getBytes());
-										connected = false;
-									}
-								}
-							} catch(IOException e) {
-								System.out.println("A client tried to connect but failed. ");
+						in = clientEndSender.getInputStream();
+						out = clientEndReceiver.getOutputStream();
+						String iD = "";
+						int temp = -1;
+						boolean connected = false;
+						while(!connected) {
+							iD = "";
+							temp = in.read();
+							if((temp == -1) || (temp == (char)'\n')) continue;
+							while(temp != (int)'\n') {
+								iD += (char)temp;
+								temp = in.read();
 							}
-						// }
-					// }).start();
+							if(iD.contains("$exit")) {
+								clientEndSender.close();
+								clientEndSender.close();
+								break;
+							}
+							// System.out.println(iD);
+							if(!iDExists(iD)) {
+								out.write("Server: Connection established! ".getBytes());
+								out.write("\n".getBytes());
+								connected = true;
+								clientList.add(new Client(iD, clientEndSender, clientEndReceiver, mainBuffer));
+								System.out.println("Number of Clients in the ChatRoom: " + clientList.size());
+							} else {
+								out.write("Server: ID already exists. ".getBytes());
+								out.write("\n".getBytes());
+								connected = false;
+							}
+						}
+					}
+				} catch(IOException e) {
+					System.out.println("A client tried to connect but failed. ");
 				}
 			}
 		}).start();
 		
-		// Remover Thread:
-			// Checks the List/Queue of clients for inactive clients and removes them.
+		System.out.println("Server is running.");
+		System.out.println("Input '$exit' to quit server: ");
+		
 		new Thread(new Runnable() {
 			public void run() {
 				while(true) {
@@ -150,10 +98,11 @@ class ChatRoomServer {
 							System.out.println("null client in the clientList.");
 							continue;
 						}
+						// System.out.println(temp.getID() + " checked");
 						if(temp.isDisconnected() == false) {
 								clientList.add(temp);
 						} else {
-							// System.out.println(temp.getID() + " is not running and hence was removed from the list.");
+							System.out.println(temp.getID() + " is not running and hence was removed from the list.");
 							System.out.println("Number of Clients in the ChatRoom: " + clientList.size());
 						}
 					}
@@ -163,13 +112,6 @@ class ChatRoomServer {
 				}
 			}
 		}).start();
-		
-		// Print the starting messages to the console: 
-		
-		System.out.println("Server is running.");
-		System.out.println("Input '$exit' to quit server: ");
-		
-		// Continuously take inputs from the console:
 		
 		while(!command.equals("$exit")) {
 			command = omi.nextLine();
@@ -185,13 +127,6 @@ class ChatRoomServer {
 		
 	} // hostServer() ends
 	
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Algorithm: iDExists(id)
-	// Checks whether a given string exists as the iD field of any Client object in the list/queue:
-	// Pre: id::java.lang.String :: the string to check for in the list/queue of clients
-	// Post: The structure of the list/queue of clients is unaffected.
-	// Return: a boolean:: true, if id is a copy of the iD field of any Client object in the list/queue of clients
-	//					false, otherwise
 	public boolean iDExists(String id) {
 		// System.out.println("Checking for ID " + id + " in clientList... ");
 		// System.out.println("clientList size: " + clientList.size());
@@ -210,7 +145,7 @@ class ChatRoomServer {
 			}
 		}
 		return false;
-	} // idExists() ends
+	}
 	
 } // ChatRoomServer class ends
 

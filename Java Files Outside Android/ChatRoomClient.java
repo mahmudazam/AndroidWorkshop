@@ -78,15 +78,6 @@ public class ChatRoomClient {
 		Thread tSend = new Thread(s);
 		tReceive.start();
 		tSend.start();
-		while(true) {
-			if(!((s.getState() == true) && (r.getState() == true))) {
-				try {
-					sender.close();
-					receiver.close();
-				} catch(IOException e) {}
-				System.exit(0);
-			}
-		}
 	}		
 }
 
@@ -110,7 +101,7 @@ class SendThread implements Runnable {
 	}
 	
 	public void run() {
-		while(running == true) {
+		while(running) {
 			message = "";
 			
 			// Read and send client's message to server: 
@@ -118,12 +109,13 @@ class SendThread implements Runnable {
 			
 			try {
 				out.write(message.getBytes());
+				// out.write("\n".getBytes());
 				out.write(3);
 				if(message.equals("$exit")) { 
+					System.exit(0);
 					try {
-						Thread.sleep(250);
+						Thread.sleep(100);
 					} catch(InterruptedException e) {}
-					running = false;
 				}
 			} catch(IOException e) {
 				System.out.println("sendMessage: IOException");
@@ -147,12 +139,18 @@ class ReceiveThread implements Runnable {
 		this.iD = id;
 	}
 	
-	public synchronized boolean getState() {
-		return this.running;
+	public synchronized void terminate() {
+		this.running = false;
+		try { 
+			Thread.sleep(1000);
+		} catch(InterruptedException e) {
+			System.out.println("ReceiveThread: Interrupted Exception");
+		}
+		System.exit(0);
 	}
 	
 	public void run() {
-		while(running == true) {
+		while(this.running) {
 			this.message = "";
 			try {
 				temp = in.read();
@@ -163,13 +161,13 @@ class ReceiveThread implements Runnable {
 					temp = in.read();
 				}
 				System.out.print(message);
-				if(message.contains(iD + ": $exit")) {
+				/* if(message.contains(iD + ": $exit")) {
 					System.out.println("ChatRoom will close. ");
-					running = false;
-				}
+					System.exit(0);
+				} */
 				if(message.contains("Server Message: $exit")) {
 					System.out.println("Server shut down. ChatRoom will close. ");
-					running = false;
+					System.exit(0);
 				}
 			} catch(IOException e) {
 				System.out.println("receiveMessage: IOException");
