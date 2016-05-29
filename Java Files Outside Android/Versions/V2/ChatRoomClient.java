@@ -38,11 +38,11 @@ public class ChatRoomClient {
 		String iD = "";
 		Scanner omi = new Scanner(System.in);
 		
-		// Print a starting message to the console:
+	// Print a starting message to the console:
 		System.out.println("///////////////////////");
 		System.out.println("ChatRoom Command Line: ");
 		
-		// Read Server IP from user:
+	// Read Server IP from user:
 		
 		PrinterOnClientSide.print("Please enter the IP address of the server: ");
 		String ip = omi.nextLine();
@@ -57,7 +57,7 @@ public class ChatRoomClient {
 		OutputStream out = null;
 		InputStream in = null;
 		
-		// Make Socket connections to the server:
+	// Make Socket connections to the server:
 		while(true) {
 			PrinterOnClientSide.println("Connecting to server...");
 			try {
@@ -80,11 +80,15 @@ public class ChatRoomClient {
 			}
 		}
 		
-		// Send the ID to the server and repeat if not validated:
+	// Read the ID from the console:
+
+		PrinterOnClientSide.print("Please enter an ID you wish to use on the server: ");
+		iD = omi.nextLine();
+
+	// Send the ID to the server and repeat if not validated:
 		boolean connected = false;
+		outerLoop:
 		while(connected != true) {
-			PrinterOnClientSide.print("Please enter another ID: ");
-			iD = omi.nextLine();
 			try { 
 				out.write(iD.getBytes());
 				out.write("\n".getBytes());
@@ -102,17 +106,23 @@ public class ChatRoomClient {
 					PrinterOnClientSide.println(serverMessage);
 					if(serverMessage.contains("ID already exists")) {
 						serverMessage = "";
-						break;
+						break innerLoop;
 					}
 					if(serverMessage.contains("Connection established")) {
 						connected = true;
-						break;
+						break outerLoop;
 					}
 					serverMessage = "";
 				}
 			} catch(IOException e) {
 				PrinterOnClientSide.println("IOException while connecting. ");
 			}
+		
+	// Read the ID again if the ID is not unique for the server:
+			
+			PrinterOnClientSide.print("Please enter another ID: ");
+			iD = omi.nextLine();
+
 		}
 
 		// Start separate Threads for receiving and sending messages from and to the server:
