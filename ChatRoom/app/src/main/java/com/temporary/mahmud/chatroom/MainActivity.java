@@ -346,9 +346,9 @@ class Connection {
                 public void run() {
                     try {
                         sender = new Socket();
-                        sender.connect(new InetSocketAddress(iP, 60000), 2000);
+                        sender.connect(new InetSocketAddress(iP, 60000), 5000);
                         receiver = new Socket();
-                        receiver.connect(new InetSocketAddress(iP, 60000), 2000);
+                        receiver.connect(new InetSocketAddress(iP, 60000), 5000);
                         out = sender.getOutputStream();
                         in = receiver.getInputStream();
                         connectionStatus = -2;

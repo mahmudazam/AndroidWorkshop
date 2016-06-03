@@ -1,43 +1,94 @@
+
+// File: ChatRoomClient.java
+
+//////////////////////////////
+// Command line ChatRoom app:
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Basic outline of protocol:
+// 1. The client app makes two java.net.Socket connections to the server:
+//                                                  1 for reception of messages and
+//                                                  1 for sending messages.
+// 2. The client app sends a '\n'-terminated message as the ID to be used in the server.
+// 3. The server checks this ID against the ID's of all other clients in a list/queue and:
+//          if the ID is unique,
+//              sends a '\n'-terminated message: "Server: Connection established! \n"
+//          else,
+//              sends a '\n'-terminated message: "Server: ID already exists. \n"
+// 4. The client app checks the server's message and:
+//      if the message contains "Connection established",
+//          it starts the normal reception of messages;
+//      else if the message contains "ID already exists", it re-sends the ID('\n'-terminated),
+//                                              or sends "$exit\n", which terminates the connection.
+// 5. The messages sent between the server and the client app form this point onwards,
+//      are all code-point-3-terminated Strings, which are continuously checked for and read from
+//          the Sockets on all sides of the connection.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 import java.util.*;
 import java.io.*;
 import java.net.*;
+import java.time.LocalDateTime;
+
 
 public class ChatRoomClient {
 	public static void main(String[] args) {
 		String iD = "";
 		Scanner omi = new Scanner(System.in);
 		
-		// Read ID from user:
+	// Print a starting message to the console:
+		System.out.println("///////////////////////");
+		System.out.println("ChatRoom Command Line: ");
 		
-		System.out.println("Chat App Starts: ");
+	// Read Server IP from user:
 		
-		// Read Server IP from user:
-		
-		// System.out.println("Please enter server IP: ");
-		final String ip = "192.168.2.104";
+		PrinterOnClientSide.print("Please enter the IP address of the server: ");
+		String ip = omi.nextLine();
+		if(ip.equals("$exit")) {
+			PrinterOnClientSide.println("ChatRoom will close. ");
+			System.exit(0);
+		}
 		final int port = 60000;
 		
-		// Connect to Server:
 		Socket sender = null;
 		Socket receiver = null;
 		OutputStream out = null;
 		InputStream in = null;
 		
-		// Make Socket connections to the server:
-		try {
-			sender = new Socket(ip, port);
-			receiver = new Socket(ip, port);
-			out = sender.getOutputStream();
-			in = receiver.getInputStream();
-		} catch(IOException e) {
-			System.out.println("connect: IOException");
+	// Make Socket connections to the server:
+		while(true) {
+			PrinterOnClientSide.println("Connecting to server...");
+			try {
+				sender = new Socket();
+				sender.connect(new InetSocketAddress(ip, port), 5000);
+				receiver = new Socket();
+				receiver.connect(new InetSocketAddress(ip, port), 5000);
+				out = sender.getOutputStream();
+				in = receiver.getInputStream();
+				PrinterOnClientSide.println("Connected to the server. ");
+				break;
+			} catch(IOException e) {
+				PrinterOnClientSide.println("Error connecting to the server. ");
+				PrinterOnClientSide.print("Please enter the IP address of the server again: ");
+				ip = omi.nextLine();
+				if(ip.equals("$exit")) {
+					PrinterOnClientSide.println("ChatRoom will close. ");
+					System.exit(0);
+				}
+			}
 		}
 		
-		// Send an ID to the server:
+	// Read the ID from the console:
+
+		PrinterOnClientSide.print("Please enter an ID you wish to use on the server: ");
+		iD = omi.nextLine();
+
+	// Send the ID to the server and repeat if not validated:
 		boolean connected = false;
+		outerLoop:
 		while(connected != true) {
-			System.out.println("Please enter an ID: ");
-			iD = omi.nextLine();
 			try { 
 				out.write(iD.getBytes());
 				out.write("\n".getBytes());
@@ -47,40 +98,54 @@ public class ChatRoomClient {
 				innerLoop:
 				while(serverMessage.equals("")) {
 					temp = in.read();
-					if((temp == -1) || (temp == (char)'\n')) continue innerLoop;
+					if((temp == -1) || (temp == '\n')) continue innerLoop;
 					while(temp != (int)'\n') {
-						// System.out.println((char)temp);
 						serverMessage += (char)temp;
 						temp = in.read();
 					}
-					System.out.println(serverMessage);
+					PrinterOnClientSide.println(serverMessage);
 					if(serverMessage.contains("ID already exists")) {
 						serverMessage = "";
-						break;
+						break innerLoop;
 					}
 					if(serverMessage.contains("Connection established")) {
 						connected = true;
-						break;
+						break outerLoop;
 					}
 					serverMessage = "";
 				}
 			} catch(IOException e) {
-				System.out.println("IOException while connecting. ");
+				PrinterOnClientSide.println("IOException while connecting. ");
 			}
-		}
 		
-		// System.out.println("Loop surpassed. ");
+	// Read the ID again if the ID is not unique for the server:
+			
+			PrinterOnClientSide.print("Please enter another ID: ");
+			iD = omi.nextLine();
 
-		// Run service:
+		}
+
+		// Start separate Threads for receiving and sending messages from and to the server:
 		ReceiveThread r = new ReceiveThread(in, iD);
 		Thread tReceive = new Thread(r);
 		SendThread s = new SendThread(out, iD);
 		Thread tSend = new Thread(s);
 		tReceive.start();
 		tSend.start();
+		while(true) {
+			if(!((s.getState() == true) && (r.getState() == true))) {
+				try {
+					sender.close();
+					receiver.close();
+				} catch(IOException e) {}
+				System.exit(0);
+			}
+		}
 	}		
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+// Class for continuously taking inputs and sending them as messages to the server:
 class SendThread implements Runnable {
 	OutputStream out;
 	boolean running;
@@ -101,7 +166,7 @@ class SendThread implements Runnable {
 	}
 	
 	public void run() {
-		while(running) {
+		while(running == true) {
 			message = "";
 			
 			// Read and send client's message to server: 
@@ -109,21 +174,22 @@ class SendThread implements Runnable {
 			
 			try {
 				out.write(message.getBytes());
-				// out.write("\n".getBytes());
 				out.write(3);
 				if(message.equals("$exit")) { 
-					System.exit(0);
 					try {
-						Thread.sleep(100);
+						Thread.sleep();
 					} catch(InterruptedException e) {}
+					running = false;
 				}
 			} catch(IOException e) {
-				System.out.println("sendMessage: IOException");
+				PrinterOnClientSide.println("sendMessage: IOException");
 			}
 		}
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Class for continuously checking for messages from the server and printing them to the console:
 class ReceiveThread implements Runnable {
 	InputStream in;
 	int temp;
@@ -139,18 +205,12 @@ class ReceiveThread implements Runnable {
 		this.iD = id;
 	}
 	
-	public synchronized void terminate() {
-		this.running = false;
-		try { 
-			Thread.sleep(1000);
-		} catch(InterruptedException e) {
-			System.out.println("ReceiveThread: Interrupted Exception");
-		}
-		System.exit(0);
+	public synchronized boolean getState() {
+		return this.running;
 	}
 	
 	public void run() {
-		while(this.running) {
+		while(running == true) {
 			this.message = "";
 			try {
 				temp = in.read();
@@ -160,20 +220,34 @@ class ReceiveThread implements Runnable {
 					message += (char) temp;
 					temp = in.read();
 				}
-				System.out.print(message);
-				/* if(message.contains(iD + ": $exit")) {
-					System.out.println("ChatRoom will close. ");
-					System.exit(0);
-				} */
+				if(message.contains(iD + ": $exit")) {
+					PrinterOnClientSide.println("ChatRoom will close. ");
+					running = false;
+				} else if(!message.equals("")){
+					PrinterOnClientSide.print(message);
+				}
 				if(message.contains("Server Message: $exit")) {
-					System.out.println("Server shut down. ChatRoom will close. ");
-					System.exit(0);
+					PrinterOnClientSide.println("Server shut down. ChatRoom will close. ");
+					running = false;
 				}
 			} catch(IOException e) {
-				System.out.println("receiveMessage: IOException");
+				PrinterOnClientSide.println("receiveMessage: IOException");
 				break;
 			}
 		}
 	}
 }
+
+/////////////////////////////////////////////
+// Class for printing in a formatted manner:
+final class PrinterOnClientSide {
+	public static void print(String message) {
+		System.out.print(LocalDateTime.now().toString() + " : " + message);
+	}
+	
+	public static void println(String message) {
+		System.out.println(LocalDateTime.now().toString() + " : " + message);
+	}
+}
+
 
