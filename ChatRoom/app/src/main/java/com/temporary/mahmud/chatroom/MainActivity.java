@@ -48,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
     // UI thread Handler:
     Handler mainHandler;
 
-    // String:
+    // Strings:
     String TAG;
 
     // Algorithm: onCreate(savedInstanceState)
@@ -119,6 +119,11 @@ public class MainActivity extends AppCompatActivity {
                 if(connection != null) connection.close();
             } catch(Exception e) {
                 Log.v(TAG, e.toString());
+            }
+            try {
+                Thread.sleep(250);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
             finish();
         }
@@ -426,22 +431,27 @@ class Connection {
     // Post: All java.net.Socket connections are closed.
     // Return: void
     public void close() {
-        if(receiveThread != null) receiveThread.terminate();
-        try {
-            Thread.sleep(50);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        try {
-            if(sender != null) sender.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            if(receiver != null) receiver.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if(receiveThread != null) receiveThread.terminate();
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    if(sender != null) sender.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    if(receiver != null) receiver.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
 }
@@ -546,13 +556,17 @@ class ReceiveThread implements Runnable {
                     mainHandler.sendMessage(stringMsg);
                 }
 
+                if(message.contains(iD +": $exit")) {
+                    Log.v(TAG, "ReceiveThread: exit message received. ");
+                }
+
                 if(message.contains("Server Message: $exit")) {
-                    running = false;
+                    Log.v(TAG, "ReceiveThread: Server's exit message received. ");
                 }
 
             } catch(IOException e) {
-                Log.v(this.TAG, "receiveMessage: IOException");
-                break;
+                Log.v(this.TAG, "ReceiveThread: IOException");
+                running = false;
             } catch(Exception e) {
                 System.exit(-1);
             }

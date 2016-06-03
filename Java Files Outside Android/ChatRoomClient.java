@@ -177,7 +177,8 @@ class SendThread implements Runnable {
 				out.write(3);
 				if(message.equals("$exit")) { 
 					try {
-						Thread.sleep();
+						PrinterOnClientSide.println("ChatRoom will close. ");
+						Thread.sleep(1000);
 					} catch(InterruptedException e) {}
 					running = false;
 				}
@@ -220,10 +221,7 @@ class ReceiveThread implements Runnable {
 					message += (char) temp;
 					temp = in.read();
 				}
-				if(message.contains(iD + ": $exit")) {
-					PrinterOnClientSide.println("ChatRoom will close. ");
-					running = false;
-				} else if(!message.equals("")){
+				if(!message.equals("")){
 					PrinterOnClientSide.print(message);
 				}
 				if(message.contains("Server Message: $exit")) {
