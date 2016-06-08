@@ -52,10 +52,11 @@ class ChatRoomServer {
 	String command;
 	String bufferName;
 	
-	// File Manager object:
+	// File Manager objects:
 		// This is necessary because the server uses a plain text(.txt) file to store the
 		//	messages of the clients. This file will be called the "file buffer". 
 	SynchronizedFileBuffer mainBuffer;
+	BufferedReader dcIn;
 	
 	// List/Queue object for managing clients:
 	ConcurrentLinkedQueue<Client> clientList;
@@ -65,13 +66,14 @@ class ChatRoomServer {
 	
 	// Constructor:
 	// Pre: port::int :: the port to which the ServerSocket of this object will be bound
-	//		n::java.lang.String :: the name/path of the file buffer
+	//		sb::java.lang.String :: the name/path of the file buffer
+	//		dc::java.lang.String :: the name/path of the daemon control file
 	// Post: A new java.net.ServerSocket is created, bound to the given port.
 	//		A new file is created as the file buffer with the given name/path.
 	//		A new java.util.concurrent.ConcurrentLinkedQueue is created.
 	//		A new Scanner object is allocated to take inputs from the console.
 	// Return: a reference to the newly created ChatRoomServer object
-	ChatRoomServer(int port, String n) {
+	ChatRoomServer(int port, String sb, String dc) {
 		server = null;
 		command = "";
 		try {
@@ -82,8 +84,13 @@ class ChatRoomServer {
 		}
 		clientEndSender = null;
 		clientEndReceiver = null;
-		this.bufferName = n;
+		this.bufferName = sb;
 		mainBuffer = new SynchronizedFileBuffer(this.bufferName);
+		try {
+			dcIn = new BufferedReader(new InputStreamReader(new FileInputStream(dc)));
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
 		clientList = new ConcurrentLinkedQueue<Client>();
 		omi = new Scanner(System.in);
 		in = null;
@@ -175,8 +182,20 @@ class ChatRoomServer {
 	// Continuously take inputs from the console:
 		
 		while(!command.equals("$exit")) {
-			command = omi.nextLine();
-			mainBuffer.append("Server Message: " + command + "\n");
+			try{
+				command = dcIn.readLine();
+			} catch(Exception e) {
+				e.printStackTrace();
+				mainBuffer.append("Server Message: " + "$exit" + "\n");
+				break;
+			}
+			if(command == null) {
+				command = "";
+			}
+			if(!command.equals("")) { 
+				mainBuffer.append("Server Message: " + command + "\n");
+				Printer.println(command);
+			}
 		}
 		Printer.println("Server shutting down... ");
 		try {
